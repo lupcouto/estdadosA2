@@ -1,0 +1,6 @@
+./dados/
+.idea/
+.claude/
+
+*.jar
+*.class
