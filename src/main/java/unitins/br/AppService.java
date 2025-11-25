@@ -28,8 +28,8 @@ public class AppService {
     private static final int TAMANHO_INICIAL = 100000;
     private static final double FATOR_CRESCIMENTO = 1.5;
 
-    // TODO: Adicionar aqui a instância da árvore binária
-    // private ArvoreBinariaADT<Integer> arvorePorCidade;
+    // Usando a classe concreta ArvoreBinaria 
+    private ArvoreBinaria<Integer> arvorePorCidade;
 
     // Estados brasileiros válidos
     private static final String[] ESTADOS = {
@@ -142,7 +142,7 @@ public class AppService {
                             totalRegistros++;
                         }
                     } catch (Exception e) {
-                        // Ignorar linhas com erro
+                        // Ignorar linhas com erro (didático)
                     }
 
                     if (totalRegistros % 1000000 == 0 && totalRegistros > 0) {
@@ -161,11 +161,19 @@ public class AppService {
             long tempo = System.currentTimeMillis() - inicio;
             Logger.registrar(String.format("Leitura do CSV concluída (%,d registros)", totalRegistros), tempo);
 
-            // TODO: Após carregar os dados, popular a árvore binária aqui
-            // arvorePorCidade = new SuaArvore<>();
-            // for (int i = 0; i < totalRegistros; i++) {
-            //     arvorePorCidade.inserir(eleitores[i].codCidade(), eleitores[i]);
-            // }
+            // Populando a árvore binária por cidade 
+            if (totalRegistros > 0) {
+                long inicioArvore = System.currentTimeMillis();
+                arvorePorCidade = new ArvoreBinaria<>();
+                for (int i = 0; i < totalRegistros; i++) {
+                    Integer chave = eleitores[i].codCidade();
+                    arvorePorCidade.inserir(chave, eleitores[i]);
+                }
+                long tempoArvore = System.currentTimeMillis() - inicioArvore;
+                Logger.registrar("Construção da árvore binária (por cidade)", tempoArvore);
+            } else {
+                arvorePorCidade = new ArvoreBinaria<>();
+            }
 
             return true;
 
@@ -190,57 +198,9 @@ public class AppService {
     /**
      * Retorna as cidades disponíveis no estado carregado.
      *
-     * ATENÇÃO ALUNOS: Esta implementação é propositalmente didática e ineficiente.
-     * Ela usa um array de tamanho fixo e uma busca linear aninhada para encontrar
-     * cidades únicas, além de um Bubble Sort para ordenar.
+     * Nota: Mantive a implementação original (didática). Futuramente podemos
+     * usar arvorePorCidade.emOrdem() para otimizar.
      *
-     * Complexidade atual:
-     * - Encontrar cidades únicas: O(N * M), onde N é totalRegistros e M é o número de cidades únicas.
-     * - Ordenação: O(M^2), onde M é o número de cidades únicas.
-     *
-     * Esta é uma "problematização" para que vocês entendam a importância de estruturas
-     * de dados mais eficientes.
-     *
-     * Abaixo, segue um exemplo de uma implementação mais eficiente usando HashMap e ArrayList,
-     * que reduz a complexidade para O(N + M log M).
-     *
-     * // Exemplo de implementação mais eficiente (para estudo):
-     * /*
-     * public String[][] getCidadesDisponiveisOtimizado() {
-     *     if (!temDados()) return new String[0][0];
-     *
-     *     // Usar um Map para encontrar cidades únicas de forma eficiente (O(N))
-     *     Map<Integer, String> cidadesUnicas = new HashMap<>();
-     *     for (int i = 0; i < totalRegistros; i++) {
-     *         cidadesUnicas.putIfAbsent(eleitores[i].codCidade(), eleitores[i].nomeCidade());
-     *     }
-     *
-     *     // Converter para lista para ordenação
-     *     List<Map.Entry<Integer, String>> listaCidades = new ArrayList<>(cidadesUnicas.entrySet());
-     *
-     *     // Ordenar a lista pelo código da cidade (chave do map) - O(M log M)
-     *     listaCidades.sort(Map.Entry.comparingByKey());
-     *
-     *     // Criar o array de resultado no formato String[][]
-     *     String[][] resultado = new String[listaCidades.size()][2];
-     *     for (int i = 0; i < listaCidades.size(); i++) {
-     *         resultado[i][0] = String.valueOf(listaCidades.get(i).getKey());
-     *         resultado[i][1] = listaCidades.get(i).getValue();
-     *     }
-     *
-     *     return resultado;
-     * }
-     */
-
-    /*
-     * TODO para os alunos (extra): Após implementar a sua ArvoreBinariaADT,
-     * você pode usar o método 'emOrdem()' da sua árvore (se a chave for o
-     * código da cidade) para obter as cidades já ordenadas de forma ainda
-     * mais eficiente (O(k), onde k é o número de nós/cidades).
-     * Isso eliminaria a necessidade de um HashMap e da ordenação explícita.
-     */
-
-    /**
      * @return Array bidimensional com [código, nome] de cada cidade
      */
     public String[][] getCidadesDisponiveis() {
@@ -296,20 +256,141 @@ public class AppService {
 
     /**
      * Calcula a quantidade de eleitores com base nos filtros.
-     *
-     * TODO para os alunos: Implementar usando a interface ArvoreBinariaADT
-     * para melhorar a eficiência das buscas.
-     *
-     * Exemplo de como usar a árvore:
-     *   if (filtroAbrangencia.equals("CIDADE")) {
-     *       PerfilEleitor[] registrosCidade = arvorePorCidade.buscar(codigoCidade);
-     *       // Processar apenas os registros da cidade (muito mais rápido!)
-     *   }
      */
     public long calcularEleitores(
             String filtroAbrangencia, int codigoCidade, int numeroZona,
             int numeroSecao, int numeroLocal,
             String filtroPerfil, String valorPerfil) {
+
+        long inicioTotal = System.currentTimeMillis();
+        long total = 0;
+
+        boolean usarArvore = filtroAbrangencia != null && (
+                filtroAbrangencia.equals("CIDADE") ||
+                filtroAbrangencia.equals("LOCAL") ||
+                filtroAbrangencia.equals("SECAO")
+        );
+
+        if (usarArvore && arvorePorCidade != null && !arvorePorCidade.estaVazia()) {
+            // BUSCA USANDO ÁRVORE
+            long inicioBuscaArvore = System.currentTimeMillis();
+            PerfilEleitor[] registrosCidade = arvorePorCidade.buscar(codigoCidade);
+            long tempoBuscaArvore = System.currentTimeMillis() - inicioBuscaArvore;
+
+            Logger.registrar("Busca na árvore por cidade " + codigoCidade, tempoBuscaArvore);
+            System.out.println("Tempo busca (árvore): " + tempoBuscaArvore + " ms");
+
+            if (registrosCidade != null) {
+                // percorre somente os registros do nó 
+                for (int i = 0; i < registrosCidade.length; i++) {
+                    PerfilEleitor e = registrosCidade[i];
+                    if (e == null) break;
+
+                    boolean passaAbrangencia = false;
+                    switch (filtroAbrangencia) {
+                        case "CIDADE":
+                            passaAbrangencia = true; 
+                            break;
+                        case "LOCAL":
+                            passaAbrangencia = (e.nrZona() == numeroZona && e.nrLocalVotacao() == numeroLocal);
+                            break;
+                        case "SECAO":
+                            passaAbrangencia = (e.nrZona() == numeroZona && e.nrSecao() == numeroSecao);
+                            break;
+                    }
+
+                    if (!passaAbrangencia) continue;
+
+                    // aplicar filtros de perfil
+                    switch (filtroPerfil) {
+                        case "TODOS":
+                            total += e.qtEleitoresPerfil();
+                            break;
+                        case "OBRIGATORIEDADE":
+                            if (e.tpObrigatoriedadeVoto().equalsIgnoreCase(valorPerfil)) {
+                                total += e.qtEleitoresPerfil();
+                            }
+                            break;
+                        case "GENERO":
+                            if (e.dsGenero().equalsIgnoreCase(valorPerfil)) {
+                                total += e.qtEleitoresPerfil();
+                            }
+                            break;
+                        case "FAIXA_ETARIA":
+                            if (verificarFaixaEtaria(e.cdFaixaEtaria(), valorPerfil)) {
+                                total += e.qtEleitoresPerfil();
+                            }
+                            break;
+                        case "ESCOLARIDADE":
+                            if (verificarEscolaridade(e.cdGrauEscolaridade(), valorPerfil)) {
+                                total += e.qtEleitoresPerfil();
+                            }
+                            break;
+                        case "ESTADO_CIVIL":
+                            if (verificarEstadoCivil(e.cdEstadoCivil(), valorPerfil)) {
+                                total += e.qtEleitoresPerfil();
+                            }
+                            break;
+                        case "RACA_COR":
+                            if (verificarRacaCor(e.cdRacaCor(), valorPerfil)) {
+                                total += e.qtEleitoresPerfil();
+                            }
+                            break;
+                        case "DEFICIENCIA":
+                            total += e.qtEleitoresDeficiencia();
+                            break;
+                        case "BIOMETRIA":
+                            total += e.qtEleitoresBiometria();
+                            break;
+                    }
+                }
+            }
+
+            // PARA COMPARAÇÃO
+            long inicioLinear = System.currentTimeMillis();
+            long totalLinear = calcularEleitoresLinear(
+                    filtroAbrangencia, codigoCidade, numeroZona, numeroSecao, numeroLocal,
+                    filtroPerfil, valorPerfil, /*registrarTempo*/ false
+            );
+            long tempoLinear = System.currentTimeMillis() - inicioLinear;
+
+            Logger.registrar("Busca linear (array) para comparação - cidade " + codigoCidade, tempoLinear);
+            System.out.println("Tempo busca (linear): " + tempoLinear + " ms");
+
+            // Checagem de consistência 
+            if (total != totalLinear) {
+                System.out.println("Atenção: resultado árvore (" + total + ") difere de resultado linear (" + totalLinear + ").");
+                Logger.erro("Divergência de resultados: árvore=" + total + " linear=" + totalLinear);
+            }
+
+            long tempoTotal = System.currentTimeMillis() - inicioTotal;
+            Logger.registrar("Consulta de eleitores (" + filtroAbrangencia + "/" + filtroPerfil + ")", tempoTotal);
+            return total;
+        }
+
+        // caso contrário
+        long resultadoLinear = calcularEleitoresLinear(
+                filtroAbrangencia, codigoCidade, numeroZona, numeroSecao, numeroLocal,
+                filtroPerfil, valorPerfil, /*registrarTempo*/ true
+        );
+
+        long tempoTotal = System.currentTimeMillis() - inicioTotal;
+        Logger.registrar("Consulta de eleitores (" + filtroAbrangencia + "/" + filtroPerfil + ")", tempoTotal);
+
+        return resultadoLinear;
+    }
+
+    /**
+     * Versão linear (array) do cálculo de eleitores.
+     *
+     * @param registrarTempo se true, o método registra o tempo no Logger.
+     *                       se false, não registra.
+     */
+    public long calcularEleitoresLinear(
+            String filtroAbrangencia, int codigoCidade, int numeroZona,
+            int numeroSecao, int numeroLocal,
+            String filtroPerfil, String valorPerfil,
+            boolean registrarTempo) {
 
         long inicio = System.currentTimeMillis();
         long total = 0;
@@ -394,7 +475,10 @@ public class AppService {
         }
 
         long tempo = System.currentTimeMillis() - inicio;
-        Logger.registrar("Consulta de eleitores (" + filtroAbrangencia + "/" + filtroPerfil + ")", tempo);
+        if (registrarTempo) {
+            Logger.registrar("Consulta linear (array) (" + filtroAbrangencia + "/" + filtroPerfil + ")", tempo);
+            System.out.println("Tempo busca (linear): " + tempo + " ms");
+        }
 
         return total;
     }
